@@ -105,6 +105,7 @@ resource "aws_iam_role_policy" "lambda_s3" {
         Resource = [
           "arn:aws:s3:::${var.genome_ref_bucket}/${var.genome_ref_key}",
           "arn:aws:s3:::${var.genome_ref_bucket}/${var.genome_ref_key}.fai",
+          "arn:aws:s3:::${var.genome_ref_bucket}/${var.genome_ref_key}.gzi",
         ]
       },
     ]

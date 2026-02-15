@@ -13,6 +13,7 @@ os.environ.setdefault("GENOME_REF_KEY", "genomes/hg38/genome.fa")
 os.environ.setdefault("OUTPUT_PREFIX", "output/")
 
 from handler import (
+    _download_genome,
     _parse_event,
     _run_bcftools_norm,
     _upload_output,
@@ -64,6 +65,38 @@ class TestParseEvent:
     def test_missing_fields_raises(self):
         with pytest.raises((KeyError, IndexError)):
             _parse_event({})
+
+
+# ---------------------------------------------------------------------------
+# Genome download
+# ---------------------------------------------------------------------------
+
+
+class TestDownloadGenome:
+    @patch("handler.s3")
+    def test_uncompressed_genome(self, mock_s3, tmp_path):
+        with patch("handler.WORK_DIR", tmp_path), \
+             patch("handler.GENOME_REF_BUCKET", "ref-bucket"), \
+             patch("handler.GENOME_REF_KEY", "genomes/genome.fa"):
+            result = _download_genome()
+
+        assert result == tmp_path / "genome.fa"
+        assert mock_s3.download_file.call_count == 2
+        mock_s3.download_file.assert_any_call("ref-bucket", "genomes/genome.fa", str(tmp_path / "genome.fa"))
+        mock_s3.download_file.assert_any_call("ref-bucket", "genomes/genome.fa.fai", str(tmp_path / "genome.fa.fai"))
+
+    @patch("handler.s3")
+    def test_bgzipped_genome_downloads_gzi(self, mock_s3, tmp_path):
+        with patch("handler.WORK_DIR", tmp_path), \
+             patch("handler.GENOME_REF_BUCKET", "ref-bucket"), \
+             patch("handler.GENOME_REF_KEY", "genomes/genome.fa.gz"):
+            result = _download_genome()
+
+        assert result == tmp_path / "genome.fa.gz"
+        assert mock_s3.download_file.call_count == 3
+        mock_s3.download_file.assert_any_call("ref-bucket", "genomes/genome.fa.gz", str(tmp_path / "genome.fa.gz"))
+        mock_s3.download_file.assert_any_call("ref-bucket", "genomes/genome.fa.gz.fai", str(tmp_path / "genome.fa.gz.fai"))
+        mock_s3.download_file.assert_any_call("ref-bucket", "genomes/genome.fa.gz.gzi", str(tmp_path / "genome.fa.gz.gzi"))
 
 
 # ---------------------------------------------------------------------------

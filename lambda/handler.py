@@ -80,10 +80,11 @@ def _download_input(bucket, key):
 
 
 def _download_genome():
-    """Download the reference genome and its .fai index from S3."""
-    genome_local = WORK_DIR / "genome.fa"
+    """Download the reference genome, .fai index, and .gzi index (if bgzipped) from S3."""
+    genome_filename = Path(GENOME_REF_KEY).name
+    genome_local = WORK_DIR / genome_filename
     fai_key = GENOME_REF_KEY + ".fai"
-    fai_local = WORK_DIR / "genome.fa.fai"
+    fai_local = WORK_DIR / (genome_filename + ".fai")
 
     logger.info(
         "Downloading genome: s3://%s/%s -> %s",
@@ -100,6 +101,17 @@ def _download_genome():
         fai_local,
     )
     s3.download_file(GENOME_REF_BUCKET, fai_key, str(fai_local))
+
+    if genome_filename.endswith(".gz"):
+        gzi_key = GENOME_REF_KEY + ".gzi"
+        gzi_local = WORK_DIR / (genome_filename + ".gzi")
+        logger.info(
+            "Downloading bgzip index: s3://%s/%s -> %s",
+            GENOME_REF_BUCKET,
+            gzi_key,
+            gzi_local,
+        )
+        s3.download_file(GENOME_REF_BUCKET, gzi_key, str(gzi_local))
 
     return genome_local
 
