@@ -22,6 +22,14 @@ Each of the 7 groups deploys the same Terraform module into their own AWS accoun
 
 Deployment is a two-pass process: Terraform creates the ECR repository first, then you push the container image and apply again to update the Lambda.
 
+Before starting, ensure your AWS credentials are valid and not expired:
+
+```bash
+aws sts get-caller-identity
+```
+
+If using SSO, run `aws sso login` first. Terraform and the AWS CLI both require active credentials for every step below.
+
 ### Step 1 — Configure Terraform variables
 
 ```bash
