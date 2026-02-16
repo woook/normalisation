@@ -198,7 +198,7 @@ pytest tests/
 
 ### Integration tests
 
-The integration test script invokes the Lambda on 100 test VCFs stored in S3 and compares outputs against pre-normalised expected files using `bcftools isec`.
+The integration test script invokes the Lambda on all test VCFs stored in S3 and compares outputs against pre-normalised expected files using `bcftools isec`.
 
 Test data lives under separate S3 prefixes (`test/input/`, `test/expected/`), completely separate from the production `input/` → `output/` flow.
 

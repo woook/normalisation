@@ -27,6 +27,8 @@ from handler import (
 
 
 class TestParseEvent:
+    """Tests for _parse_event handling of S3 and manual payloads."""
+
     def test_s3_event(self):
         event = {
             "Records": [
@@ -73,6 +75,8 @@ class TestParseEvent:
 
 
 class TestDownloadGenome:
+    """Tests for _download_genome with uncompressed and bgzipped genomes."""
+
     @patch("handler.s3")
     def test_uncompressed_genome(self, mock_s3, tmp_path):
         with patch("handler.WORK_DIR", tmp_path), \
@@ -105,6 +109,8 @@ class TestDownloadGenome:
 
 
 class TestBcftoolsNorm:
+    """Tests for _run_bcftools_norm subprocess execution."""
+
     @patch("handler.subprocess.run")
     def test_success(self, mock_run, tmp_path):
         input_path = tmp_path / "sample.vcf.gz"
@@ -145,8 +151,11 @@ class TestBcftoolsNorm:
 
 
 class TestUploadOutput:
+    """Tests for _upload_output S3 key derivation logic."""
+
     @patch("handler.s3")
     def test_standard_input_prefix(self, mock_s3, tmp_path):
+        """input/sample.vcf.gz should produce output/sample.vcf.gz."""
         output_path = tmp_path / "normalised_sample.vcf.gz"
         output_path.touch()
 
@@ -176,6 +185,9 @@ class TestUploadOutput:
 
         key = _upload_output("my-bucket", "input/subdir/input/sample.vcf.gz", output_path)
         assert key == "input/subdir/output/sample.vcf.gz"
+        mock_s3.upload_file.assert_called_once_with(
+            str(output_path), "my-bucket", "input/subdir/output/sample.vcf.gz"
+        )
 
     @patch("handler.s3")
     def test_no_input_segment_uses_output_prefix(self, mock_s3, tmp_path):
@@ -196,6 +208,8 @@ class TestUploadOutput:
 
 
 class TestLambdaHandler:
+    """End-to-end handler tests with mocked dependencies."""
+
     @patch("handler._cleanup")
     @patch("handler._upload_output", return_value="output/sample.vcf.gz")
     @patch("handler._run_bcftools_norm")

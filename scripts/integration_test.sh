@@ -27,8 +27,9 @@ FUNCTION_NAME="${FUNCTION_NAME:-vcf-normalisation}"
 MAX_PARALLEL="${MAX_PARALLEL:-10}"
 POLL_TIMEOUT="${POLL_TIMEOUT:-120}"
 
-# Derive output prefix by replacing /input/ with /output/ in the input prefix
-OUTPUT_PREFIX="${INPUT_PREFIX/\/input\//\/output\/}"
+# Derive output prefix by replacing the last /input/ with /output/ (matches
+# the Lambda's rfind-based replacement logic)
+OUTPUT_PREFIX=$(echo "${INPUT_PREFIX}" | sed 's|\(.*\)/input/|\1/output/|')
 
 # ── Discover test VCFs ───────────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ invoke_lambda() {
     local file="$1"
     local key="${INPUT_PREFIX}${file}"
     local payload
-    payload=$(printf '{"bucket":"%s","key":"%s"}' "${BUCKET}" "${key}")
+    payload=$(jq -nc --arg b "${BUCKET}" --arg k "${key}" '{bucket: $b, key: $k}')
 
     aws lambda invoke \
         --function-name "${FUNCTION_NAME}" \
@@ -62,8 +63,6 @@ invoke_lambda() {
         --cli-binary-format raw-in-base64-out \
         /dev/null > /dev/null 2>&1
 }
-export -f invoke_lambda
-export BUCKET INPUT_PREFIX FUNCTION_NAME
 
 sent=0
 total=${#FILES[@]}
@@ -89,9 +88,11 @@ missing=()
 for file in "${FILES[@]}"; do
     output_key="${OUTPUT_PREFIX}${file}"
     elapsed=0
+    found=true
 
     while ! aws s3 ls "s3://${BUCKET}/${output_key}" > /dev/null 2>&1; do
         if (( elapsed >= POLL_TIMEOUT )); then
+            found=false
             missing+=("${file}")
             break
         fi
@@ -99,7 +100,7 @@ for file in "${FILES[@]}"; do
         elapsed=$((elapsed + 5))
     done
 
-    if (( elapsed < POLL_TIMEOUT )); then
+    if [[ "${found}" == true ]]; then
         ready=$((ready + 1))
     fi
     printf "  [%d/%d] outputs ready\r" "${ready}" "${total}"

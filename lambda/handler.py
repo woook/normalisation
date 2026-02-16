@@ -67,6 +67,7 @@ def _parse_event(event):
 
 
 def _setup_work_dir():
+    """Create the temporary working directory for downloads and processing."""
     WORK_DIR.mkdir(parents=True, exist_ok=True)
 
 
