@@ -14,5 +14,8 @@ terraform/.terraform.lock.hcl
 .vscode/
 .idea/
 
+# Test reports
+integration_report.md
+
 # OS
 .DS_Store
