@@ -311,8 +311,27 @@ for i in "${!FILES[@]}"; do
     query_expected="${TMPDIR}/query_expected_${file%.vcf.gz}.txt"
     query_diff="${TMPDIR}/query_diff_${file%.vcf.gz}.txt"
 
-    bcftools query -f "${query_fmt}" "${local_output}" > "${query_output}" 2>/dev/null || true
-    bcftools query -f "${query_fmt}" "${local_expected}" > "${query_expected}" 2>/dev/null || true
+    if ! bcftools query -f "${query_fmt}" "${local_output}" > "${query_output}" 2>/dev/null; then
+        echo "  [FAIL] ${file} — bcftools query failed on output"
+        failed=$((failed + 1))
+        failures+=("${file}: bcftools query failed on output")
+        result_status[$i]="FAIL"
+        result_reason[$i]="bcftools query failed on output"
+        result_detail[$i]=""
+        result_full_diff[$i]=""
+        continue
+    fi
+
+    if ! bcftools query -f "${query_fmt}" "${local_expected}" > "${query_expected}" 2>/dev/null; then
+        echo "  [FAIL] ${file} — bcftools query failed on expected"
+        failed=$((failed + 1))
+        failures+=("${file}: bcftools query failed on expected")
+        result_status[$i]="FAIL"
+        result_reason[$i]="bcftools query failed on expected"
+        result_detail[$i]=""
+        result_full_diff[$i]=""
+        continue
+    fi
 
     if ! diff "${query_output}" "${query_expected}" > "${query_diff}" 2>/dev/null; then
         diff_lines=$(wc -l < "${query_diff}")
