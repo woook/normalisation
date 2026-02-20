@@ -217,6 +217,28 @@ A file passes only if all three tiers pass. After the run, a markdown report is 
 
 Test data lives under separate S3 prefixes (`test/input/`, `test/expected/`), completely separate from the production `input/` → `output/` flow.
 
+#### Local dependencies
+
+The integration test script runs `bcftools` locally to compare output and expected files. You need:
+
+- **bcftools** (>= 1.13) — for `bcftools stats`, `bcftools isec`, `bcftools query`, `bcftools index`, and `bcftools view`
+- **bgzip** (from htslib) — bundled with most bcftools installations
+- **jq** — used to construct the Lambda invocation payload
+- **AWS CLI v2** — for S3 downloads and Lambda invocation
+- **diff** — standard Unix diff (coreutils)
+
+On Ubuntu/Debian:
+
+```bash
+sudo apt install bcftools jq
+```
+
+On macOS (Homebrew):
+
+```bash
+brew install bcftools jq
+```
+
 #### Setup
 
 1. Grant the Lambda access to the test prefixes by adding the following to `terraform.tfvars` and running `terraform apply`:
@@ -258,6 +280,45 @@ Example:
 ```bash
 MAX_PARALLEL=20 ./scripts/integration_test.sh my-vcf-data
 ```
+
+## AWS permissions
+
+### Deployment
+
+The user or CI role running `terraform apply` and pushing the container image needs:
+
+| Service | Permissions | Reason |
+|---------|-------------|--------|
+| ECR | `ecr:CreateRepository`, `ecr:DeleteRepository`, `ecr:PutLifecyclePolicy`, `ecr:DescribeRepositories`, `ecr:ListTagsForResource`, `ecr:TagResource` | Create and manage the container repository |
+| ECR (image push) | `ecr:GetAuthorizationToken`, `ecr:BatchCheckLayerAvailability`, `ecr:PutImage`, `ecr:InitiateLayerUpload`, `ecr:UploadLayerPart`, `ecr:CompleteLayerUpload` | Authenticate Docker and push images |
+| Lambda | `lambda:CreateFunction`, `lambda:UpdateFunctionCode`, `lambda:UpdateFunctionConfiguration`, `lambda:DeleteFunction`, `lambda:GetFunction`, `lambda:AddPermission`, `lambda:RemovePermission`, `lambda:TagResource`, `lambda:ListTags` | Create and update the Lambda function |
+| IAM | `iam:CreateRole`, `iam:DeleteRole`, `iam:AttachRolePolicy`, `iam:DetachRolePolicy`, `iam:PutRolePolicy`, `iam:DeleteRolePolicy`, `iam:GetRole`, `iam:GetRolePolicy`, `iam:PassRole`, `iam:ListRolePolicies`, `iam:ListAttachedRolePolicies`, `iam:ListInstanceProfilesForRole`, `iam:TagRole` | Manage the Lambda execution role |
+| S3 | `s3:GetBucketNotification`, `s3:PutBucketNotification` | Configure the S3 event trigger |
+| S3 (data source) | `s3:ListBucket`, `s3:GetBucketLocation` | Terraform data source to reference the existing bucket |
+| STS | `sts:GetCallerIdentity` | Terraform uses this to determine the account ID |
+
+### Runtime (day-to-day use)
+
+Users who upload VCFs or manually invoke the Lambda need:
+
+| Service | Permissions | Reason |
+|---------|-------------|--------|
+| S3 | `s3:PutObject` on `input/*` | Upload input VCFs |
+| S3 | `s3:GetObject` on `output/*` | Download normalised results |
+| S3 | `s3:ListBucket` | List objects in input/output prefixes |
+| Lambda | `lambda:InvokeFunction` | Manual invocation via `invoke.sh` or AWS CLI |
+| CloudWatch Logs | `logs:FilterLogEvents`, `logs:GetLogEvents` | View Lambda logs for monitoring |
+
+### Integration testing
+
+In addition to the runtime permissions above, the integration test script needs:
+
+| Service | Permissions | Reason |
+|---------|-------------|--------|
+| S3 | `s3:GetObject` on `test/input/*`, `test/expected/*`, `test/output/*` | Download test inputs, expected files, and Lambda outputs |
+| S3 | `s3:DeleteObject` on `test/output/*` | Clean previous test outputs before each run |
+| S3 | `s3:ListBucket` (with prefix `test/input/`) | Discover test VCF files |
+| Lambda | `lambda:InvokeFunction` (async) | Invoke the Lambda for each test file |
 
 ## Normalisation command
 
