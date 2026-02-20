@@ -239,6 +239,8 @@ On macOS (Homebrew):
 brew install bcftools jq
 ```
 
+AWS CLI v2 must be installed separately — see the [AWS CLI installation guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html). `diff` is preinstalled on all standard Linux and macOS systems.
+
 #### Setup
 
 1. Grant the Lambda access to the test prefixes by adding the following to `terraform.tfvars` and running `terraform apply`:
