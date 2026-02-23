@@ -364,7 +364,7 @@ tests/test_handler.py::TestUploadOutput::test_uncompressed_no_input_segment_beco
 tests/test_handler.py::TestLambdaHandler::test_full_flow PASSED          [ 94%]
 tests/test_handler.py::TestLambdaHandler::test_cleanup_on_error PASSED   [100%]
 
-============================== 17 passed in 0.21s ==============================
+============================== 17 passed in 0.22s ==============================
 ```
 
 </details>
@@ -455,7 +455,7 @@ The pipeline accepts both gzipped (`.vcf.gz`) and uncompressed (`.vcf`) VCF file
 **S3 trigger** — the Terraform notification resource registers two filter blocks, one per suffix, so uploads of either format fire the Lambda:
 
 ```bash
-grep -A 14 "aws_s3_bucket_notification" terraform/main.tf
+grep -A 18 "aws_s3_bucket_notification" terraform/main.tf
 ```
 
 ```output
@@ -474,6 +474,10 @@ resource "aws_s3_bucket_notification" "input" {
     events              = ["s3:ObjectCreated:*"]
     filter_prefix       = var.input_prefix
     filter_suffix       = ".vcf"
+  }
+
+  depends_on = [aws_lambda_permission.s3]
+}
 ```
 
 **Handler — normalisation and output key** — `_run_bcftools_norm` renames the local output file to `.vcf.gz` when the input was `.vcf`, and passes `-Oz` so bcftools writes bgzipped content. `_upload_output` then ensures the S3 key always ends in `.vcf.gz`:
@@ -524,5 +528,5 @@ tests/test_handler.py::TestBcftoolsNorm::test_success_uncompressed PASSED [ 50%]
 tests/test_handler.py::TestUploadOutput::test_uncompressed_input_key_becomes_gz PASSED [ 75%]
 tests/test_handler.py::TestUploadOutput::test_uncompressed_no_input_segment_becomes_gz PASSED [100%]
 
-======================= 4 passed, 13 deselected in 0.19s =======================
+======================= 4 passed, 13 deselected in 0.22s =======================
 ```

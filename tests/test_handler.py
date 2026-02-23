@@ -30,6 +30,7 @@ class TestParseEvent:
     """Tests for _parse_event handling of S3 and manual payloads."""
 
     def test_s3_event(self):
+        """S3 event record is parsed into bucket and key."""
         event = {
             "Records": [
                 {
@@ -45,6 +46,7 @@ class TestParseEvent:
         assert key == "input/sample.vcf.gz"
 
     def test_s3_event_url_encoded_key(self):
+        """URL-encoded key (+ as space) is decoded correctly."""
         event = {
             "Records": [
                 {
@@ -59,12 +61,14 @@ class TestParseEvent:
         assert key == "input/my sample.vcf.gz"
 
     def test_manual_event(self):
+        """Manual invocation payload is parsed into bucket and key."""
         event = {"bucket": "my-bucket", "key": "input/sample.vcf.gz"}
         bucket, key = _parse_event(event)
         assert bucket == "my-bucket"
         assert key == "input/sample.vcf.gz"
 
     def test_missing_fields_raises(self):
+        """Empty event raises KeyError or IndexError."""
         with pytest.raises((KeyError, IndexError)):
             _parse_event({})
 
@@ -79,6 +83,7 @@ class TestDownloadGenome:
 
     @patch("handler.s3")
     def test_uncompressed_genome(self, mock_s3, tmp_path):
+        """Uncompressed genome downloads .fa and .fai only."""
         with patch("handler.WORK_DIR", tmp_path), \
              patch("handler.GENOME_REF_BUCKET", "ref-bucket"), \
              patch("handler.GENOME_REF_KEY", "genomes/genome.fa"):
@@ -97,6 +102,7 @@ class TestDownloadGenome:
 
     @patch("handler.s3")
     def test_bgzipped_genome_downloads_gzi(self, mock_s3, tmp_path):
+        """Bgzipped genome also downloads the .gzi index."""
         with patch("handler.WORK_DIR", tmp_path), \
              patch("handler.GENOME_REF_BUCKET", "ref-bucket"), \
              patch("handler.GENOME_REF_KEY", "genomes/genome.fa.gz"):
@@ -128,6 +134,7 @@ class TestBcftoolsNorm:
 
     @patch("handler.subprocess.run")
     def test_success_gzipped(self, mock_run, tmp_path):
+        """Gzipped input produces a .vcf.gz output path and -Oz is passed."""
         input_path = tmp_path / "sample.vcf.gz"
         input_path.touch()
         genome_path = tmp_path / "genome.fa"
@@ -171,6 +178,7 @@ class TestBcftoolsNorm:
 
     @patch("handler.subprocess.run")
     def test_failure_raises(self, mock_run, tmp_path):
+        """Non-zero bcftools exit code raises RuntimeError."""
         input_path = tmp_path / "sample.vcf.gz"
         input_path.touch()
         genome_path = tmp_path / "genome.fa"
@@ -287,6 +295,7 @@ class TestLambdaHandler:
         mock_upload,
         mock_cleanup,
     ):
+        """All pipeline stages are called in order and the response is well-formed."""
         event = {"bucket": "my-bucket", "key": "input/sample.vcf.gz"}
         result = lambda_handler(event, None)
 
@@ -306,6 +315,7 @@ class TestLambdaHandler:
     @patch("handler._download_input", side_effect=Exception("S3 error"))
     @patch("handler._setup_work_dir")
     def test_cleanup_on_error(self, mock_setup, mock_dl, mock_cleanup):
+        """Cleanup is called even when an exception is raised mid-pipeline."""
         event = {"bucket": "my-bucket", "key": "input/sample.vcf.gz"}
 
         with pytest.raises(Exception, match="S3 error"):
