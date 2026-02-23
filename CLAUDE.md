@@ -12,7 +12,7 @@
 S3 event (input/*.vcf.gz) → Lambda (container image with bcftools) → S3 (output/)
 
 The Lambda downloads the input VCF and a per-account reference genome from S3,
-runs `bcftools norm -f genome.fa -m -any --keep-sum AD`, and uploads the result.
+runs `bcftools norm -Oz -f genome.fa -m -any --keep-sum AD`, and uploads the result.
 
 ## Key files
 

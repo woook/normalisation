@@ -118,12 +118,20 @@ def _download_genome():
 
 
 def _run_bcftools_norm(input_path, genome_path):
-    """Run bcftools norm and return the path to the output file."""
-    output_path = WORK_DIR / f"normalised_{input_path.name}"
+    """Run bcftools norm and return the path to the output file.
+
+    Output is always bgzipped (.vcf.gz) regardless of whether the input was
+    compressed or uncompressed.
+    """
+    output_name = input_path.name
+    if output_name.endswith(".vcf"):
+        output_name = output_name[:-4] + ".vcf.gz"
+    output_path = WORK_DIR / f"normalised_{output_name}"
 
     cmd = [
         "bcftools",
         "norm",
+        "-Oz",
         "-f",
         str(genome_path),
         "-m",
@@ -165,6 +173,10 @@ def _upload_output(bucket, input_key, output_path):
     else:
         filename = Path(input_key).name
         output_key = f"{OUTPUT_PREFIX}{filename}"
+
+    # Output is always bgzipped; fix the extension if the input was uncompressed
+    if output_key.endswith(".vcf"):
+        output_key = output_key[:-4] + ".vcf.gz"
 
     logger.info("Uploading output: %s -> s3://%s/%s", output_path, bucket, output_key)
     s3.upload_file(str(output_path), bucket, output_key)

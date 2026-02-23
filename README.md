@@ -125,13 +125,15 @@ terraform destroy
 
 ### Automatic — upload a file
 
-Upload a compressed VCF to the `input/` prefix in your bucket. The Lambda triggers automatically:
+Upload a VCF to the `input/` prefix in your bucket. Both gzipped (`.vcf.gz`) and uncompressed (`.vcf`) inputs are accepted. The Lambda triggers automatically:
 
 ```bash
 aws s3 cp sample.vcf.gz s3://my-vcf-data/input/sample.vcf.gz
+# or
+aws s3 cp sample.vcf s3://my-vcf-data/input/sample.vcf
 ```
 
-The normalised file appears at the `output/` prefix:
+The normalised file appears at the `output/` prefix. Output is always bgzipped (`.vcf.gz`), regardless of whether the input was compressed:
 
 ```bash
 # Check it arrived
@@ -327,7 +329,7 @@ In addition to the runtime permissions above, the integration test script needs:
 The pipeline runs:
 
 ```bash
-bcftools norm -f genome.fa -m -any --keep-sum AD input.vcf.gz -o output.vcf.gz
+bcftools norm -Oz -f genome.fa -m -any --keep-sum AD input.vcf.gz -o output.vcf.gz
 ```
 
 - `-m -any` — split multiallelic sites into biallelic records

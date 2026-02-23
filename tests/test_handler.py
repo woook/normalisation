@@ -127,7 +127,7 @@ class TestBcftoolsNorm:
     """Tests for _run_bcftools_norm subprocess execution."""
 
     @patch("handler.subprocess.run")
-    def test_success(self, mock_run, tmp_path):
+    def test_success_gzipped(self, mock_run, tmp_path):
         input_path = tmp_path / "sample.vcf.gz"
         input_path.touch()
         genome_path = tmp_path / "genome.fa"
@@ -138,16 +138,36 @@ class TestBcftoolsNorm:
             stderr="Lines total/split/joined: 100/10/5\n",
         )
 
-        # Patch WORK_DIR so output lands in tmp_path
         with patch("handler.WORK_DIR", tmp_path):
             output = _run_bcftools_norm(input_path, genome_path)
 
-        assert output == tmp_path / f"normalised_{input_path.name}"
+        assert output == tmp_path / "normalised_sample.vcf.gz"
         mock_run.assert_called_once()
         cmd = mock_run.call_args[0][0]
         assert cmd[0] == "bcftools"
+        assert "-Oz" in cmd
         assert "-f" in cmd
         assert "--keep-sum" in cmd
+
+    @patch("handler.subprocess.run")
+    def test_success_uncompressed(self, mock_run, tmp_path):
+        """Uncompressed .vcf input should produce a .vcf.gz output path."""
+        input_path = tmp_path / "sample.vcf"
+        input_path.touch()
+        genome_path = tmp_path / "genome.fa"
+        genome_path.touch()
+
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="",
+            stderr="Lines total/split/joined: 100/10/5\n",
+        )
+
+        with patch("handler.WORK_DIR", tmp_path):
+            output = _run_bcftools_norm(input_path, genome_path)
+
+        assert output == tmp_path / "normalised_sample.vcf.gz"
+        cmd = mock_run.call_args[0][0]
+        assert "-Oz" in cmd
 
     @patch("handler.subprocess.run")
     def test_failure_raises(self, mock_run, tmp_path):
@@ -214,6 +234,30 @@ class TestUploadOutput:
         output_path.touch()
 
         key = _upload_output("my-bucket", "uploads/sample.vcf.gz", output_path)
+        assert key == "output/sample.vcf.gz"
+        mock_s3.upload_file.assert_called_once_with(
+            str(output_path), "my-bucket", "output/sample.vcf.gz"
+        )
+
+    @patch("handler.s3")
+    def test_uncompressed_input_key_becomes_gz(self, mock_s3, tmp_path):
+        """input/sample.vcf (uncompressed) should produce output/sample.vcf.gz."""
+        output_path = tmp_path / "normalised_sample.vcf.gz"
+        output_path.touch()
+
+        key = _upload_output("my-bucket", "input/sample.vcf", output_path)
+        assert key == "output/sample.vcf.gz"
+        mock_s3.upload_file.assert_called_once_with(
+            str(output_path), "my-bucket", "output/sample.vcf.gz"
+        )
+
+    @patch("handler.s3")
+    def test_uncompressed_no_input_segment_becomes_gz(self, mock_s3, tmp_path):
+        """Uncompressed key without /input/ should also get .vcf.gz extension."""
+        output_path = tmp_path / "normalised_sample.vcf.gz"
+        output_path.touch()
+
+        key = _upload_output("my-bucket", "uploads/sample.vcf", output_path)
         assert key == "output/sample.vcf.gz"
         mock_s3.upload_file.assert_called_once_with(
             str(output_path), "my-bucket", "output/sample.vcf.gz"
