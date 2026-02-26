@@ -114,6 +114,18 @@ aws lambda update-function-code \
   --image-uri "$ECR_REPO:latest"
 ```
 
+#### Updating from a different machine
+
+If you are running these steps on a machine that has no local Terraform state (e.g. a fresh clone), Terraform will not know about the existing resources and `terraform apply` will fail. Import the resources that already exist in AWS before applying:
+
+```bash
+cd terraform
+terraform import aws_iam_role.lambda vcf-normalisation-lambda
+terraform import aws_lambda_permission.s3 vcf-normalisation/AllowS3Invoke
+```
+
+Replace `vcf-normalisation` with your `project_name` if you changed the default. After importing, run `terraform apply` as normal.
+
 ### Tearing down
 
 ```bash
